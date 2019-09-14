@@ -1,0 +1,145 @@
+---
+title: "ICESASC19 tweets"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(rtweet)
+library(tidyverse)
+library(lubridate)
+```
+
+## Get the data
+
+```{r icesasc19_data}
+
+## search for tweets using the icesasc19 hashtag
+ices_tweets_t <- search_tweets(
+  "#ICESASC19", n = 250000, retryonratelimit = TRUE, 
+  include_rts = FALSE
+)
+print(nrow(ices_tweets_t))
+ices_tweets_rt <- search_tweets(
+  "#ICESASC19", n = 250000, retryonratelimit = TRUE,
+  include_rts = TRUE
+)
+print(nrow(ices_tweets_rt))
+```
+## plot time series of tweets
+
+```{r seeices}
+ices_tweets_t %>%
+  ts_plot("3 hours") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(plot.title = ggplot2::element_text(face = "bold")) +
+  ggplot2::labs(
+    x = NULL, y = NULL,
+    title = "Frequency of #ICESASC19 Twitter statuses from past 9 days",
+    subtitle = "Twitter status (tweet) counts aggregated using three-hour intervals",
+    caption = "\n@gavin_fay\nSource: Data collected from Twitter's REST API via rtweet"
+  )
+```
+
+## plot time series of (re)tweets
+```{r seeices2}
+ices_tweets_rt %>%
+  ts_plot("3 hours") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(plot.title = ggplot2::element_text(face = "bold")) +
+  ggplot2::labs(
+    x = NULL, y = NULL,
+    title = "Frequency of #ICESASC19 Twitter statuses from past 9 days",
+    subtitle = "Twitter status (tweet & retweet) counts aggregated using three-hour intervals",
+    caption = "\n@gavin_fay\nSource: Data collected from Twitter's REST API via rtweet"
+  )
+```
+
+
+```{r mapices}
+## create lat/lng variables using all available tweet and profile geo-location data
+rtr <- lat_lng(ices_tweets_rt)
+
+## plot state boundaries
+par(mar = c(0, 0, 0, 0))
+maps::map("world", lwd = .25)
+
+## plot lat and lng points onto state map
+with(rtr, points(lng, lat, pch = 20, cex = .75, col = rgb(0, .3, .7, .75)))
+
+```
+
+
+```{r vizices}
+mydat <- ices_tweets_rt %>% 
+  mutate(year = year(created_at),
+         day = day(created_at)) %>% 
+  filter(day>=7) %>% 
+  group_by(day)
+ggplot(mydat) +
+  geom_bar(aes(day)) +
+  xlab("day") +
+  ylab("number of (re)tweets") +
+  labs(
+   # x = NULL, y = NULL,
+    title = "Frequency of #ICESASC19 Twitter (re)tweets by date in September",
+    caption = "\n@gavin_fay\nSource: Data collected from Twitter's REST API via rtweet"
+  )
+```
+
+
+#Who were the top #ICESASC19 tweeters?
+```{r topnices}
+ icesn <- ices_tweets_t %>% 
+  mutate(year = year(created_at),
+         day = day(created_at)) %>% 
+  filter(day>=7) %>% 
+#  group_by(day) %>% 
+  count(screen_name, sort = TRUE) %>% 
+  top_n(15, n)
+
+ggplot(icesn) +
+  geom_col(aes(fct_reorder(screen_name,n),n), fill="steelblue") +
+  coord_flip() +
+  labs(
+    x = NULL, y = NULL,
+    title = "Top 15 #ICESASC19 tweeters 9/7/19-9/13/19",
+    caption = "\n@gavin_fay\nSource: Data collected from Twitter's REST API via rtweet"
+  )
+
+```
+
+
+#Who amplified #ICESASC19 tweets the most? (top retweeters)
+
+```{r topnices2}
+ icesn2 <- ices_tweets_rt %>% 
+  filter(is_retweet==TRUE) %>% 
+  mutate(year = year(created_at),
+         day = day(created_at)) %>% 
+  filter(day>=7) %>% 
+  count(screen_name, sort = TRUE) %>% 
+  filter(screen_name!="ICES_ASC") %>% 
+  top_n(15, n)
+
+ggplot(icesn2) +
+  geom_col(aes(fct_reorder(screen_name,n),n), fill="steelblue") +
+  coord_flip() +
+  labs(
+    x = NULL, y = NULL,
+    title = "Top 15 #ICESASC19 retweeters 9/7/19-9/14/19",
+    caption = "\n@gavin_fay\nSource: Data collected from Twitter's REST API via rtweet"
+  )
+
+```
+
+
+## What were #ICESASC19 tweeters tweeting about?
+## Most common words
+```{r wordcloudices}
+icestext <- gsub("ICESASC19","",ices_tweets_rt$text)
+bicestext <- gsub("icesasc19","",icestext)
+wordcloud(icestext, min.freq = 100)
+```
+
